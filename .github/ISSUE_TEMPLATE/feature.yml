@@ -1,0 +1,26 @@
+name: Suggest a feature
+description: An idea for something Valnivo should do.
+title: "[Idea] "
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome, especially ones about planning ahead or about money
+        that crosses a border. **This issue is public**, so please keep your own
+        figures out of it.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Valnivo to do?
+      placeholder: Let me mark an investment as held in a pension wrapper so it is projected separately.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would that let you work out?
+      description: The question you are trying to answer matters more than the feature itself.
+      placeholder: Whether I can afford to stop working before my pension pays out.
+    validations:
+      required: false

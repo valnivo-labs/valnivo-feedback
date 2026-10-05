@@ -1,0 +1,49 @@
+name: Report a bug
+description: Something in Valnivo does not work the way it should.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **This issue is public**, so please do not
+        include your own figures, screenshots of your ledger, or your recovery code.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+      placeholder: I tapped Save on a new entry and the sheet closed without adding anything.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be reproduced?
+      description: The steps someone else could follow to see the same thing.
+      placeholder: |
+        1. Open Money in & out
+        2. Tap Add income or expense
+        3. …
+    validations:
+      required: false
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where were you using it?
+      options:
+        - Android app from Google Play
+        - The website on a phone
+        - The website on a computer
+        - Added to the Home Screen on iPhone or iPad
+        - Somewhere else
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      description: Rough is fine.
+      placeholder: Pixel 8, Chrome
+    validations:
+      required: false

@@ -1,0 +1,119 @@
+# Copies a public feedback issue into the owner's private inbox.
+#
+# Why the workflow lives in the public repository and not in the inbox: a public
+# repository gets unlimited free Actions minutes and this only wakes when
+# feedback actually arrives — a handful of runs a month. A cron polling from the
+# private side would spend the 2,000-minute monthly allowance on runs that find
+# nothing.
+#
+# What it needs: a secret INBOX_TOKEN, a fine-grained personal access token
+# whose only permission is Issues (read and write) on the inbox repository — so
+# that one private issue tracker is the whole blast radius if it ever leaks.
+# Without the secret every run exits quietly instead of failing, so nothing
+# sends failure mail before it is configured.
+#
+# Untrusted input: a title, a body and a comment are written by strangers, so
+# nothing from the event is interpolated into the shell with ${{ }}. Every value
+# is read out of $GITHUB_EVENT_PATH with jq, which is what stops a title
+# containing $(...) or a backtick from running as a command on the runner.
+
+name: Copy feedback to the private inbox
+
+on:
+  issues:
+    types: [opened, reopened, edited, closed]
+  issue_comment:
+    types: [created]
+
+# The job talks only to the inbox, with its own token, and needs nothing from
+# this repository — so the automatic token is granted no permissions at all.
+permissions: {}
+
+concurrency:
+  group: inbox-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Is there an inbox to copy to?
+        env:
+          TOKEN: ${{ secrets.INBOX_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "HAS_TOKEN=true" >> "$GITHUB_ENV"
+          else
+            echo "No INBOX_TOKEN secret is set, so there is nowhere to copy to."
+          fi
+
+      - name: Copy it across
+        if: env.HAS_TOKEN == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.INBOX_TOKEN }}
+          INBOX: kabilJbeli/feedback-inbox
+          APP: valnivo
+        run: |
+          set -euo pipefail
+          E="$GITHUB_EVENT_PATH"
+
+          if [ -n "$(jq -r '.issue.pull_request // empty' "$E")" ]; then
+            echo "A pull request, not feedback. Nothing to copy."
+            exit 0
+          fi
+
+          number=$(jq -r '.issue.number' "$E")
+          marker="[$APP#$number]"
+
+          # One request, newest first. The mirror of an issue somebody is
+          # touching right now is never far down the list, which avoids both the
+          # search index's delay and pagination.
+          mirror=$(gh api "repos/$INBOX/issues?state=all&per_page=100&sort=created&direction=desc" \
+            | jq -r --arg m "$marker" 'map(select(.title | startswith($m))) | .[0].number // empty')
+
+          # Rebuilt from the event every time, so an upstream edit can reuse it.
+          payload() {
+            jq -n --arg m "$marker" --arg app "$APP" --slurpfile e "$E" '
+              ($e[0].issue) as $i
+              | { title: ($m + " " + $i.title),
+                  labels: [$app],
+                  body: ( "**Public issue:** " + $i.html_url
+                        + "\n**Opened by:** @" + $i.user.login + " on " + $i.created_at
+                        + "\n**Labels upstream:** "
+                        + (if ($i.labels | length) > 0
+                           then ($i.labels | map(.name) | join(", "))
+                           else "none" end)
+                        + "\n\n---\n\n"
+                        + (if (($i.body // "") | length) > 0
+                           then $i.body
+                           else "_No description._" end) ) }'
+          }
+
+          if [ -z "$mirror" ]; then
+            mirror=$(payload | gh api "repos/$INBOX/issues" --input - --jq '.number')
+            echo "Created $INBOX#$mirror"
+          else
+            echo "The mirror is $INBOX#$mirror"
+          fi
+
+          case "$GITHUB_EVENT_NAME:$(jq -r '.action' "$E")" in
+            issue_comment:created)
+              jq -n --slurpfile e "$E" '
+                ($e[0].comment) as $c
+                | { body: ("**@" + $c.user.login + " commented** — " + $c.html_url
+                          + "\n\n" + ($c.body // "")) }' \
+                | gh api "repos/$INBOX/issues/$mirror/comments" --input - --jq '"Comment copied: " + .html_url'
+              ;;
+            issues:edited)
+              payload | gh api -X PATCH "repos/$INBOX/issues/$mirror" --input - --jq '"Updated: " + .html_url'
+              ;;
+            issues:closed)
+              jq -n '{ body: "The public issue was closed." }' \
+                | gh api "repos/$INBOX/issues/$mirror/comments" --input - > /dev/null
+              gh api -X PATCH "repos/$INBOX/issues/$mirror" -f state=closed --jq '"Closed: " + .html_url'
+              ;;
+            issues:reopened)
+              gh api -X PATCH "repos/$INBOX/issues/$mirror" -f state=open --jq '"Reopened: " + .html_url'
+              ;;
+          esac

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Something private, or a security problem
+    url: mailto:support@valnivo.eu
+    about: Anything involving your own figures or a security issue. Please do not post those publicly.
