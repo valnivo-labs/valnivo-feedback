@@ -6,9 +6,9 @@ This repository is for **bug reports and ideas** about
 There is no code here. It exists so anyone can report a problem or suggest a
 feature without an account on anything but GitHub.
 
-- [Report a bug](https://github.com/kabilJbeli/valnivo-feedback/issues/new?template=bug.yml)
-- [Suggest a feature](https://github.com/kabilJbeli/valnivo-feedback/issues/new?template=feature.yml)
-- [See what has already been reported](https://github.com/kabilJbeli/valnivo-feedback/issues)
+- [Report a bug](https://github.com/valnivo-labs/valnivo-feedback/issues/new?template=bug.yml)
+- [Suggest a feature](https://github.com/valnivo-labs/valnivo-feedback/issues/new?template=feature.yml)
+- [See what has already been reported](https://github.com/valnivo-labs/valnivo-feedback/issues)
 
 ## Please do not post private information
 
